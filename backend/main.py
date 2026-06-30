@@ -124,11 +124,12 @@ def rerank_with_gemini(query: str, candidates: list) -> list:
         for idx, p in enumerate(candidates):
             items.append(f"[{idx}] Title: {p.title}\nAbstract: {(p.abstract or '')[:300]}")
             
+        papers_str = "\n\n".join(items)
         prompt = f"""You are an expert research ranker. Rate the relevance of these papers to the search query "{query}".
 Respond ONLY with a JSON list of indices in order of relevance (most relevant first), e.g. [3, 0, 1, 2]. Do not include any other text.
 
 PAPERS:
-{"\n\n".join(items)}"""
+{papers_str}"""
         
         res = model.generate_content(prompt)
         text = res.text.strip()
