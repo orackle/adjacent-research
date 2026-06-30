@@ -206,6 +206,35 @@ function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
 
 // ── Shared UI components ───────────────────────────────────────────────────────
 
+function renderAsBullets(text: string, style?: React.CSSProperties) {
+  if (!text) return null;
+  const sentences = text
+    .split(/(?<!\d)\.(?!\d)\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (sentences.length <= 1) {
+    return (
+      <p style={{ lineHeight: 1.5, ...style }}>
+        {text}
+      </p>
+    );
+  }
+
+  return (
+    <ul style={{ paddingLeft: "16px", margin: "6px 0", display: "flex", flexDirection: "column", gap: "6px", ...style }}>
+      {sentences.map((sentence, idx) => {
+        const formatted = sentence.endsWith(".") ? sentence : `${sentence}.`;
+        return (
+          <li key={idx} style={{ listStyleType: "disc", lineHeight: 1.5 }}>
+            {formatted}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function LeapBadge({ leap }: { leap: string }) {
   return <span className={`leap-badge leap-${leap}`}>{LEAP_LABELS[leap] ?? leap}</span>;
 }
@@ -449,11 +478,7 @@ function TimelinePaperNode({ paper, index, isPivotal, isActive, onClick, transit
 
         {isActive && (
           <div className="slide-in" style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--b1)" }}>
-            {paper.abstract && (
-              <p className="font-ui" style={{ fontSize: "0.78rem", color: "var(--t2)", lineHeight: 1.6, marginBottom: "10px" }}>
-                {paper.abstract}
-              </p>
-            )}
+            {paper.abstract && renderAsBullets(paper.abstract, { fontSize: "0.78rem", color: "var(--t2)", marginBottom: "10px" })}
             <PaperLinks paper={paper} />
           </div>
         )}
@@ -510,7 +535,7 @@ function NarrativeBlock({ narrative }: { narrative: string }) {
       <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: "8px" }}>
         Intellectual Lineage Narrative
       </div>
-      <p>{narrative}</p>
+      {renderAsBullets(narrative, { fontSize: "0.875rem", color: "var(--t2)", lineHeight: 1.65 })}
     </div>
   );
 }
@@ -1064,9 +1089,7 @@ export default function Home() {
                                       <LeapBadge leap={r.leap} />
                                     </div>
 
-                                    <p style={{ fontSize: "0.79rem", color: "var(--t2)", lineHeight: 1.5, marginBottom: "6px" }}>
-                                      {r.why}
-                                    </p>
+                                    {renderAsBullets(r.why, { fontSize: "0.79rem", color: "var(--t2)", marginBottom: "6px" })}
 
                                     <AnimatePresence>
                                       {isActive && (
