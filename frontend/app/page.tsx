@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import dynamic from "next/dynamic";
 import "./globals.css";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -96,82 +95,23 @@ const TRACE_STEPS = [
 
 const STEP_DURATIONS = [3000, 6000, 8000, 1500];
 
-// ── Dynamic imports (shader gradient) ─────────────────────────────────────────
+// ── Aurora Background (pure CSS, replaces shader gradient) ────────────────────
 
-const ShaderGradientCanvas = dynamic(
-  () => import("@shadergradient/react").then((mod) => mod.ShaderGradientCanvas),
-  { ssr: false }
-);
-
-const ShaderGradient = dynamic(
-  () => import("@shadergradient/react").then((mod) => mod.ShaderGradient),
-  { ssr: false }
-);
-
-const ShaderGradientAny: any = ShaderGradient;
-
-function ShaderGradientBackground({ dimmed }: { dimmed?: boolean }) {
+function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
   return (
     <div
+      className="aurora-bg"
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: -1,
-        pointerEvents: "none",
-        /* Overlay a white wash to tone down the saturation */
-        background: dimmed
-          ? "rgba(240,244,248,0.72)"
-          : "rgba(240,244,248,0.45)",
+        zIndex: 0,
+        opacity: dimmed ? 0.65 : 1,
+        transition: "opacity 0.8s ease",
       }}
     >
-      <ShaderGradientCanvas
-        lazyLoad={false}
-        pointerEvents="none"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-      >
-        <ShaderGradientAny
-          animate="on"
-          brightness={0.72}          /* Reduced from 1.2 */
-          cAzimuthAngle={180}
-          cDistance={2.8}
-          cPolarAngle={95}
-          cameraZoom={1}
-          color1="#c2e4f5"           /* Softer colours */
-          color2="#9dd5e8"
-          color3="#dceefb"
-          destination="onCanvas"
-          embedMode="off"
-          envPreset="city"
-          fov={45}
-          frameRate={10}
-          gizmoHelper="hide"
-          grain="off"
-          lightType="3d"
-          pixelDensity={1}
-          positionX={0}
-          positionY={-2.1}
-          positionZ={0}
-          range="disabled"
-          rangeEnd={40}
-          rangeStart={0}
-          reflection={0.05}
-          rotationX={0}
-          rotationY={0}
-          rotationZ={225}
-          shader="defaults"
-          type="waterPlane"
-          uAmplitude={0}
-          uDensity={1.6}
-          uFrequency={4.5}
-          uSpeed={0.12}             /* Slower movement */
-          uStrength={2.2}
-          uTime={0.2}
-          wireframe={false}
-        />
-      </ShaderGradientCanvas>
+      <div className="aurora-orb" />
+      <div className="aurora-orb" />
+      <div className="aurora-orb" />
+      <div className="aurora-orb" />
+      <div className="aurora-grain" />
     </div>
   );
 }
@@ -502,24 +442,39 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
       className="landing-screen"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.35 }}
+      exit={{ opacity: 0, scale: 0.96, y: -20 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Logo */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", justifyContent: "center" }}>
-          <span style={{ fontSize: "2rem" }}>◈</span>
-          <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em" }}>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05, type: "spring", stiffness: 300, damping: 24 }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px", justifyContent: "center" }}>
+          <motion.span
+            className="float-y"
+            style={{ fontSize: "2.2rem", display: "inline-block" }}
+            initial={{ rotate: -15, scale: 0.6 }}
+            animate={{ rotate: 0, scale: 1 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 260, damping: 18 }}
+          >◈</motion.span>
+          <h1 className="font-display" style={{ fontSize: "2.1rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em" }}>
             Interlace
           </h1>
         </div>
-        <p style={{ fontSize: "0.9rem", color: "var(--t3)", textAlign: "center", marginBottom: "40px" }}>
+        <p style={{ fontSize: "0.88rem", color: "var(--t3)", textAlign: "center", marginBottom: "36px", letterSpacing: "0.04em" }}>
           Research Adjacency Engine
         </p>
       </motion.div>
 
       {/* Tagline */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.4 }} style={{ marginBottom: "36px", textAlign: "center" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.14, type: "spring", stiffness: 240, damping: 22 }}
+        style={{ marginBottom: "36px", textAlign: "center" }}
+      >
         <h2 className="font-display" style={{ fontSize: "2.8rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em", lineHeight: 1.12, marginBottom: "14px", maxWidth: "580px" }}>
           Discover What's<br />Adjacent to Any Idea
         </h2>
@@ -529,30 +484,37 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
       </motion.div>
 
       {/* Mode toggle + search */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} style={{ width: "100%", maxWidth: "520px" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 28, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.22, type: "spring", stiffness: 260, damping: 24 }}
+        style={{ width: "100%", maxWidth: "520px" }}
+      >
         {/* Mode switch */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "12px", background: "rgba(255,255,255,0.70)", borderRadius: "10px", padding: "4px", border: "1px solid var(--b1)" }}>
+        <div className="glass-panel" style={{ display: "flex", gap: "6px", marginBottom: "12px", padding: "5px", borderRadius: "12px" }}>
           {(["map", "trace"] as const).map((m) => (
-            <button
+            <motion.button
               key={m}
               onClick={() => setMode(m)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               style={{
-                flex: 1, padding: "8px", border: "none", borderRadius: "7px", cursor: "pointer",
-                fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 600,
-                transition: "all 0.15s ease",
+                flex: 1, padding: "10px", border: "none", borderRadius: "8px", cursor: "pointer",
+                fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600,
+                transition: "background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease",
                 background: mode === m ? "white" : "transparent",
                 color: mode === m ? "var(--t1)" : "var(--t3)",
-                boxShadow: mode === m ? "0 1px 6px rgba(15,23,42,0.10)" : "none",
+                boxShadow: mode === m ? "0 2px 10px rgba(15,23,42,0.12)" : "none",
               }}
             >
               {m === "map" ? "◈ Adjacent Mapper" : "⚡ Lineage Tracer"}
-            </button>
+            </motion.button>
           ))}
         </div>
 
         {/* Search box */}
         <div style={{ position: "relative", marginBottom: "14px" }}>
-          <svg style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--t4)", pointerEvents: "none" }}
+          <svg style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "var(--t4)", pointerEvents: "none" }}
             width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
             <circle cx={11} cy={11} r={8} /><path d="m21 21-4.35-4.35" />
           </svg>
@@ -567,37 +529,69 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
           />
         </div>
 
-        <button className="btn-primary-hero" style={{ width: "100%", marginBottom: "20px" }} onClick={submit} disabled={!query.trim()}>
+        <motion.button
+          className="btn-primary-hero"
+          style={{ width: "100%", marginBottom: "22px" }}
+          onClick={submit}
+          disabled={!query.trim()}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+        >
           {mode === "map" ? "Map Adjacencies →" : "Trace Lineage →"}
-        </button>
+        </motion.button>
 
         {/* Example chips */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center" }}>
-          {(mode === "map" ? EXAMPLES_MAP : EXAMPLES_TRACE).slice(0, 4).map((ex) => (
-            <button key={ex} className="chip" onClick={() => { setQuery(ex); onStart(mode, ex); }}>
-              {ex}
-            </button>
-          ))}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+            style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center" }}
+          >
+            {(mode === "map" ? EXAMPLES_MAP : EXAMPLES_TRACE).slice(0, 4).map((ex, i) => (
+              <motion.button
+                key={ex}
+                className="chip"
+                onClick={() => { setQuery(ex); onStart(mode, ex); }}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.06, type: "spring", stiffness: 340, damping: 22 }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {ex}
+              </motion.button>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       </motion.div>
 
       {/* Feature cards */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35, duration: 0.5 }}
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", maxWidth: "520px", width: "100%", marginTop: "44px" }}>
-        <div className="hero-feature-card">
-          <div style={{ fontSize: "1.1rem", marginBottom: "8px" }}>◈</div>
-          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--t1)", marginBottom: "5px" }}>Adjacent Mapper</div>
-          <p style={{ fontSize: "0.75rem", color: "var(--t3)", lineHeight: 1.5 }}>
-            Ranked adjacent fields scored by urgency and feasibility.
-          </p>
-        </div>
-        <div className="hero-feature-card">
-          <div style={{ fontSize: "1.1rem", marginBottom: "8px" }}>⚡</div>
-          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--t1)", marginBottom: "5px" }}>Lineage Tracer</div>
-          <p style={{ fontSize: "0.75rem", color: "var(--t3)", lineHeight: 1.5 }}>
-            Causal citation chains from founding paper to frontier.
-          </p>
-        </div>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.38, type: "spring", stiffness: 220, damping: 24 }}
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", maxWidth: "520px", width: "100%", marginTop: "40px" }}
+      >
+        {[
+          { icon: "◈", label: "Adjacent Mapper", desc: "Ranked adjacent fields scored by urgency and feasibility." },
+          { icon: "⚡", label: "Lineage Tracer",  desc: "Causal citation chains from founding paper to frontier." },
+        ].map(({ icon, label, desc }, i) => (
+          <motion.div
+            key={label}
+            className="hero-feature-card"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.42 + i * 0.08, type: "spring", stiffness: 280, damping: 24 }}
+            whileHover={{ y: -5, boxShadow: "0 12px 36px rgba(15,23,42,0.13)" }}
+          >
+            <div style={{ fontSize: "1.2rem", marginBottom: "8px" }}>{icon}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--t1)", marginBottom: "5px" }}>{label}</div>
+            <p style={{ fontSize: "0.75rem", color: "var(--t3)", lineHeight: 1.5 }}>{desc}</p>
+          </motion.div>
+        ))}
       </motion.div>
     </motion.div>
   );
@@ -840,7 +834,7 @@ export default function Home() {
 
   return (
     <>
-      <ShaderGradientBackground dimmed={hasStarted} />
+      <AuroraBackground dimmed={hasStarted} />
 
       <AnimatePresence mode="wait">
         {!hasStarted ? (
@@ -889,7 +883,12 @@ export default function Home() {
                     )}
 
                     {mapResponse && !mapLoading && (
-                      <div className="result-split">
+                      <motion.div
+                        className="result-split"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
                         {/* Left: scatter + legend */}
                         <div className="result-left">
                           <div style={{ marginBottom: "20px" }}>
@@ -1001,7 +1000,7 @@ export default function Home() {
                             })}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {!mapLoading && !mapResponse && !mapError && !mapEmpty && (
