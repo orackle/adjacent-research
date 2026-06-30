@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
 import "./globals.css";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,23 +96,110 @@ const TRACE_STEPS = [
 
 const STEP_DURATIONS = [3000, 6000, 8000, 1500];
 
-// ── Aurora Background (pure CSS, replaces shader gradient) ────────────────────
+// ── Dynamic imports (shader gradient) ─────────────────────────────────────────
+
+const ShaderGradientCanvas = dynamic(
+  () => import("@shadergradient/react").then((mod) => mod.ShaderGradientCanvas),
+  { ssr: false }
+);
+
+const ShaderGradient = dynamic(
+  () => import("@shadergradient/react").then((mod) => mod.ShaderGradient),
+  { ssr: false }
+);
+
+const ShaderGradientAny: any = ShaderGradient;
 
 function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div
+        className="aurora-bg"
+        style={{
+          zIndex: 0,
+          opacity: dimmed ? 0.88 : 1,
+          transition: "opacity 0.8s ease",
+        }}
+      >
+        <div className="aurora-orb" />
+        <div className="aurora-orb" />
+        <div className="aurora-orb" />
+        <div className="aurora-orb" />
+        <div className="aurora-grain" />
+      </div>
+    );
+  }
+
   return (
     <div
-      className="aurora-bg"
       style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
         zIndex: 0,
+        pointerEvents: "none",
         opacity: dimmed ? 0.88 : 1,
         transition: "opacity 0.8s ease",
       }}
     >
-      <div className="aurora-orb" />
-      <div className="aurora-orb" />
-      <div className="aurora-orb" />
-      <div className="aurora-orb" />
-      <div className="aurora-grain" />
+      <ShaderGradientCanvas
+        lazyLoad={false}
+        pointerEvents="none"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      >
+        <ShaderGradientAny
+          animate="on"
+          axesHelper="off"
+          bgColor1="#000000"
+          bgColor2="#000000"
+          brightness={1.2}
+          cAzimuthAngle={170}
+          cDistance={4.4}
+          cPolarAngle={70}
+          cameraZoom={1}
+          color1="#d0d8e0"
+          color2="#b3fbff"
+          color3="#ffffff"
+          destination="onCanvas"
+          embedMode="off"
+          envPreset="city"
+          format="gif"
+          fov={45}
+          frameRate={10}
+          gizmoHelper="hide"
+          grain="off"
+          lightType="3d"
+          pixelDensity={1}
+          positionX={0}
+          positionY={0.9}
+          positionZ={-0.3}
+          range="disabled"
+          rangeEnd={40}
+          rangeStart={0}
+          reflection={0.1}
+          rotationX={45}
+          rotationY={0}
+          rotationZ={0}
+          shader="defaults"
+          type="waterPlane"
+          uAmplitude={0}
+          uDensity={1.2}
+          uFrequency={0}
+          uSpeed={0.2}
+          uStrength={3.4}
+          uTime={0}
+          wireframe={false}
+        />
+      </ShaderGradientCanvas>
+      <div className="aurora-grain" style={{ zIndex: 1 }} />
     </div>
   );
 }
