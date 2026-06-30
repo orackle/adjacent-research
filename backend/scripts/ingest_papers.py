@@ -83,19 +83,20 @@ def download_cd_index():
 # In ingest_papers.py
 def fetch_arxiv_papers(topic: str, max_results: int = 50) -> list:
     """Fetch papers from arXiv API (no key needed)"""
-    import urllib.request, urllib.parse, xml.etree.ElementTree as ET
+    import urllib.parse, xml.etree.ElementTree as ET
     from datetime import datetime
     
     query = urllib.parse.quote(topic)
     url = f"http://export.arxiv.org/api/query?search_query=all:{query}&max_results={max_results}&sortBy=relevance"
     
     try:
-        with urllib.request.urlopen(url) as resp:
-            tree = ET.parse(resp)
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
         
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         papers = []
-        for entry in tree.getroot().findall("atom:entry", ns):
+        for entry in root.findall("atom:entry", ns):
             id_el = entry.find("atom:id", ns)
             if id_el is None or not id_el.text:
                 continue

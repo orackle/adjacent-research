@@ -56,7 +56,7 @@ def populate_concepts_from_db(db: Session):
                     concept_data = results[0]
                     level = concept_data.get("level", 3)
                     # ancestors are ancestral concepts
-                    ancestors = [a.get("display_name") for a in concept_data.get("ancestors", [])]
+                    ancestors = [a.get("display_name") for a in (concept_data.get("ancestors") or [])]
         except Exception as e:
             logger.warning(f"Failed to fetch concept details for '{name}': {e}")
 
