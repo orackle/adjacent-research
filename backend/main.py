@@ -78,11 +78,11 @@ def generate_query_embedding(text: str) -> list:
 
 def generate_llm_explanations(title: str, abstract: str) -> tuple:
     """Generate breakthrough one-liner and context summary using Gemini."""
+    default_one_liner = f"Introduces a groundbreaking framework for solving key constraints in {title}."
+    default_context = "**Problem Posed:** General bottleneck in state-of-the-art systems.\n\n**Solution Proposed:** Custom methodology that enhances performance."
+
     if not GEMINI_API_KEY:
-        return (
-            f"Introduces a groundbreaking framework for solving key constraints in {title}.",
-            f"This study addresses a foundational bottleneck. By employing state-of-the-art methodology, it improves performance and introduces new paradigms compared to traditional baseline techniques described in the abstract."
-        )
+        return (default_one_liner, default_context)
 
     try:
         model = genai.GenerativeModel("gemini-2.5-flash")
@@ -95,7 +95,8 @@ Abstract: "{abstract}"
 
 Breakthrough reason:"""
         res_one = model.generate_content(prompt_one_liner)
-        one_liner = res_one.text.strip().strip('"')
+        one_liner_text = getattr(res_one, 'text', None)
+        one_liner = one_liner_text.strip().strip('"') if one_liner_text else default_one_liner
 
         # 2. Context summary (Problem and Solution)
         prompt_context = f"""Write a concise two-part analysis of this paper based on its title and abstract:
@@ -107,12 +108,13 @@ Do not include any other text or headers.
 Paper: "{title}"
 Abstract: "{abstract}" """
         res_context = model.generate_content(prompt_context)
-        context = res_context.text.strip()
+        context_text = getattr(res_context, 'text', None)
+        context = context_text.strip() if context_text else default_context
 
         return one_liner, context
     except Exception as e:
         logger.error(f"Error generating Gemini explanations: {e}")
-        return ("Key breakthrough in scientific paradigm.", "**Problem Posed:** General bottleneck in state-of-the-art systems.\n\n**Solution Proposed:** Custom methodology that enhances performance.")
+        return (default_one_liner, default_context)
 
 def rerank_with_gemini(query: str, candidates: list) -> list:
     """Use Gemini to re-rank the top candidates for relevance."""
@@ -132,7 +134,12 @@ PAPERS:
 {papers_str}"""
         
         res = model.generate_content(prompt)
-        text = res.text.strip()
+        # Guard: res.text can be None if response was blocked/filtered
+        res_text = getattr(res, 'text', None)
+        if not res_text:
+            logger.warning("Gemini rerank returned empty/blocked response; using FAISS order.")
+            return candidates[:10]
+        text = res_text.strip()
         
         # Extract indices
         import re
@@ -151,6 +158,53 @@ PAPERS:
     except Exception as e:
         logger.error(f"Failed to rerank with Gemini: {e}")
     return candidates[:10]
+
+def _live_fallback_search(topic: str, k: int) -> list:
+    """
+    When the local FAISS index has no relevant papers for a topic,
+    fetch live results from OpenAlex and arXiv, format them as lightweight
+    result dicts (without DB scores), and return them.
+    """
+    from scripts.ingest_papers import fetch_openalex_papers, fetch_arxiv_papers
+    logger.info(f"No local results for '{topic}' — falling back to live OpenAlex/arXiv search.")
+
+    oa_papers = fetch_openalex_papers(topic, limit=k * 3)
+    ax_papers = fetch_arxiv_papers(topic, max_results=k * 2)
+
+    seen_titles: set = set()
+    merged = []
+    for p in oa_papers + ax_papers:
+        norm = (p.get("title") or "").strip().lower()
+        if norm and norm not in seen_titles:
+            seen_titles.add(norm)
+            merged.append(p)
+
+    results = []
+    for p in merged[:k]:
+        ext = p.get("externalIds") or {}
+        results.append({
+            "corpus_id": p.get("paperId", ""),
+            "doi": ext.get("DOI"),
+            "arxiv_id": ext.get("ArXiv"),
+            "title": p.get("title", "Untitled"),
+            "abstract": p.get("abstract", ""),
+            "year": p.get("year"),
+            "fields_of_study": p.get("fieldsOfStudy") or [],
+            "citation_count": p.get("citationCount", 0),
+            "citation_velocity": p.get("citationVelocity", 0.0),
+            "influential_citation_count": p.get("influentialCitationCount", 0),
+            "cd_index": None,
+            "novelty_score": None,
+            "breakthrough_score": None,
+            "citation_velocity_percentile": 0.0,
+            "cd_index_percentile": 0.0,
+            "one_line_reason": None,
+            "context_summary": None,
+            "final_score": p.get("citationVelocity", 0.0),
+            "live_result": True,  # flag so frontend can show a badge
+        })
+    return results
+
 
 @app.route("/search", methods=["POST"])
 def search_papers():
@@ -175,22 +229,28 @@ def search_papers():
     db = SessionLocal()
     try:
         papers = db.query(Paper).filter(Paper.embedding != None).all()
-        if not papers:
-            logger.info("No papers found in database.")
-            return jsonify([])
             
         # 2. Dense retrieval via local FAISS index
         from vector_index import search_faiss_index
         faiss_results = search_faiss_index(query_emb, top_k=20)
+
+        # Check if FAISS results are meaningful (score > 0.3 cosine similarity)
+        RELEVANCE_THRESHOLD = 0.3
+        strong_faiss = [(cid, score) for cid, score in faiss_results if score >= RELEVANCE_THRESHOLD] if faiss_results else []
         
         top_candidates = []
-        if faiss_results:
-            candidate_ids = [item[0] for item in faiss_results]
+        if strong_faiss:
+            candidate_ids = [item[0] for item in strong_faiss]
             papers_map = {p.corpus_id: p for p in db.query(Paper).filter(Paper.corpus_id.in_(candidate_ids)).all()}
             top_candidates = [papers_map[cid] for cid in candidate_ids if cid in papers_map]
         
-        if not top_candidates:
-            return jsonify([])
+        # If no papers in DB at all OR no relevant local results → live fallback
+        if not papers or not top_candidates:
+            logger.info(f"Triggering live fallback for topic='{topic}' (papers_in_db={len(papers) if papers else 0}, strong_faiss={len(strong_faiss)})")
+            live_results = _live_fallback_search(topic, k)
+            duration = time.time() - start_time
+            logger.info(f"Live fallback search completed in {duration:.3f}s with {len(live_results)} results")
+            return jsonify(live_results)
             
         # 3. Re-rank using Gemini
         candidates = rerank_with_gemini(topic, top_candidates)
