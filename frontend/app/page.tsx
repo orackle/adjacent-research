@@ -157,17 +157,17 @@ function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
       >
         <ShaderGradientAny
           animate="on"
-          axesHelper="off"
+          axesHelper="on"
           bgColor1="#000000"
           bgColor2="#000000"
-          brightness={1.2}
-          cAzimuthAngle={170}
-          cDistance={4.4}
-          cPolarAngle={70}
+          brightness={1.1}
+          cAzimuthAngle={180}
+          cDistance={3.9}
+          cPolarAngle={115}
           cameraZoom={1}
-          color1="#d0d8e0"
-          color2="#b3fbff"
-          color3="#ffffff"
+          color1="#adffd5"
+          color2="#c9f0fe"
+          color3="#fffffa"
           destination="onCanvas"
           embedMode="off"
           envPreset="city"
@@ -178,24 +178,24 @@ function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
           grain="off"
           lightType="3d"
           pixelDensity={1}
-          positionX={0}
-          positionY={0.9}
-          positionZ={-0.3}
+          positionX={-0.5}
+          positionY={0.1}
+          positionZ={0}
           range="disabled"
           rangeEnd={40}
           rangeStart={0}
           reflection={0.1}
-          rotationX={45}
+          rotationX={0}
           rotationY={0}
-          rotationZ={0}
+          rotationZ={235}
           shader="defaults"
           type="waterPlane"
           uAmplitude={0}
-          uDensity={1.2}
-          uFrequency={0}
-          uSpeed={0.2}
-          uStrength={3.4}
-          uTime={0}
+          uDensity={1.1}
+          uFrequency={5.5}
+          uSpeed={0.1}
+          uStrength={2.4}
+          uTime={0.2}
           wireframe={false}
         />
       </ShaderGradientCanvas>
@@ -666,7 +666,7 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
         >
           {[
             { icon: "◈", label: "Adjacent Mapper", desc: "Ranked adjacent fields scored by urgency and feasibility." },
-            { icon: "⚡", label: "Lineage Tracer",  desc: "Causal citation chains from founding paper to frontier." },
+            { icon: "⚡", label: "Lineage Tracer", desc: "Causal citation chains from founding paper to frontier." },
           ].map(({ icon, label, desc }, i) => (
             <motion.div
               key={label}
@@ -870,7 +870,22 @@ export default function Home() {
       if (!data.results?.length) {
         setMapEmpty(`No adjacencies found for "${q}". Try rephrasing.`);
       } else {
-        setMapResponse(data);
+        const sanitizedResults = data.results.map((item: any) => {
+          const confidence = item.confidence ?? 80;
+          return {
+            field: item.title ?? item.field ?? "Unknown Opportunity",
+            why: item.description ?? item.why ?? "No description provided.",
+            blocker: item.novelty_rationale ?? item.blocker ?? "No blocker information.",
+            confidence: confidence,
+            leap: item.leap ?? (confidence > 80 ? "near" : confidence > 55 ? "mid" : "far"),
+            adoption_urgency: item.adoption_urgency ?? Math.round((confidence * 0.9) + 5),
+            feasibility_now: item.feasibility_now ?? Math.round((confidence * 0.8) + 10),
+          };
+        });
+        setMapResponse({
+          ...data,
+          results: sanitizedResults,
+        });
       }
     } catch (e: unknown) {
       clearFakeProgress();
@@ -1005,8 +1020,8 @@ export default function Home() {
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             {[
                               { key: "near", label: "Adjacent Possible", sub: "Ready to apply now" },
-                              { key: "mid",  label: "Stretch Leap",      sub: "Requires adaptation" },
-                              { key: "far",  label: "Frontier Leap",     sub: "Highly speculative" },
+                              { key: "mid", label: "Stretch Leap", sub: "Requires adaptation" },
+                              { key: "far", label: "Frontier Leap", sub: "Highly speculative" },
                             ].map(({ key, label, sub }) => (
                               <div key={key} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.72rem", color: "var(--t2)" }}>
                                 <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: `var(--${key})`, flexShrink: 0 }} />
@@ -1174,7 +1189,7 @@ export default function Home() {
                               <div className="horizon-bar">
                                 {[
                                   { label: "1–2 Years", color: "var(--near)", filter: (f: FrontierItem) => f.horizon.includes("1-2") || f.horizon.toLowerCase().includes("near") },
-                                  { label: "3–5 Years", color: "var(--mid)",  filter: (f: FrontierItem) => f.horizon.includes("3-5") || f.horizon.toLowerCase().includes("mid") },
+                                  { label: "3–5 Years", color: "var(--mid)", filter: (f: FrontierItem) => f.horizon.includes("3-5") || f.horizon.toLowerCase().includes("mid") },
                                   { label: "5–10 Years", color: "var(--far)", filter: (f: FrontierItem) => f.horizon.includes("5-10") || f.horizon.toLowerCase().includes("far") || f.horizon.includes("10") },
                                 ].map(({ label, color, filter }) => (
                                   <div key={label} className="horizon-zone">
