@@ -97,34 +97,34 @@ html, body {
 .aurora-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.45;
+  filter: blur(48px);
+  opacity: 0.72;
   animation: orbFloat 14s ease-in-out infinite;
 }
 .aurora-orb:nth-child(1) {
-  width: 500px; height: 500px;
+  width: 550px; height: 550px;
   top: -100px; left: -80px;
-  background: radial-gradient(circle, rgba(147, 197, 253, 0.7), rgba(196, 181, 253, 0.4));
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.75), rgba(139, 92, 246, 0.45));
   animation-duration: 16s;
 }
 .aurora-orb:nth-child(2) {
-  width: 400px; height: 400px;
+  width: 450px; height: 450px;
   bottom: -80px; right: -60px;
-  background: radial-gradient(circle, rgba(167, 243, 208, 0.6), rgba(125, 211, 252, 0.35));
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.75), rgba(56, 189, 248, 0.45));
   animation-duration: 20s;
   animation-delay: -7s;
 }
 .aurora-orb:nth-child(3) {
-  width: 350px; height: 350px;
-  top: 40%; left: 55%;
-  background: radial-gradient(circle, rgba(216, 180, 254, 0.5), rgba(196, 181, 253, 0.25));
+  width: 400px; height: 400px;
+  top: 35%; left: 50%;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.70), rgba(244, 114, 182, 0.40));
   animation-duration: 24s;
   animation-delay: -4s;
 }
 .aurora-orb:nth-child(4) {
-  width: 280px; height: 280px;
-  top: 15%; right: 20%;
-  background: radial-gradient(circle, rgba(254, 215, 170, 0.45), rgba(253, 186, 116, 0.20));
+  width: 320px; height: 320px;
+  top: 15%; right: 15%;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.65), rgba(253, 224, 71, 0.35));
   animation-duration: 19s;
   animation-delay: -11s;
 }

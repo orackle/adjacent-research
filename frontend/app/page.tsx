@@ -103,7 +103,7 @@ function AuroraBackground({ dimmed }: { dimmed?: boolean }) {
       className="aurora-bg"
       style={{
         zIndex: 0,
-        opacity: dimmed ? 0.65 : 1,
+        opacity: dimmed ? 0.88 : 1,
         transition: "opacity 0.8s ease",
       }}
     >
