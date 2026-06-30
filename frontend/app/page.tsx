@@ -714,7 +714,7 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 
-function Sidebar({ activeTab, setActiveTab, mapQuery, setMapQuery, traceQuery, setTraceQuery, mapLoading, traceLoading, onMap, onTrace }: {
+function Sidebar({ activeTab, setActiveTab, mapQuery, setMapQuery, traceQuery, setTraceQuery, mapLoading, traceLoading, onMap, onTrace, onStopMap, onStopTrace }: {
   activeTab: "map" | "trace";
   setActiveTab: (t: "map" | "trace") => void;
   mapQuery: string;
@@ -725,6 +725,8 @@ function Sidebar({ activeTab, setActiveTab, mapQuery, setMapQuery, traceQuery, s
   traceLoading: boolean;
   onMap: (q?: string) => void;
   onTrace: (q?: string) => void;
+  onStopMap: () => void;
+  onStopTrace: () => void;
 }) {
   return (
     <motion.aside
@@ -778,9 +780,18 @@ function Sidebar({ activeTab, setActiveTab, mapQuery, setMapQuery, traceQuery, s
                 </svg>
                 <input className="search-input" type="text" value={mapQuery} onChange={(e) => setMapQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onMap()} placeholder="Technology area..." disabled={mapLoading} autoComplete="off" />
               </div>
-              <button className="btn-primary" style={{ width: "100%", marginBottom: "20px" }} onClick={() => onMap()} disabled={mapLoading || !mapQuery.trim()}>
-                {mapLoading ? "Mapping..." : "Map Adjacencies"}
-              </button>
+              {mapLoading ? (
+                <button
+                  style={{ width: "100%", marginBottom: "20px", padding: "10px 16px", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600, background: "rgba(220,38,38,0.08)", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", transition: "background 0.15s" }}
+                  onClick={onStopMap}
+                >
+                  ✕ Stop Pipeline
+                </button>
+              ) : (
+                <button className="btn-primary" style={{ width: "100%", marginBottom: "20px" }} onClick={() => onMap()} disabled={!mapQuery.trim()}>
+                  Map Adjacencies
+                </button>
+              )}
               <span className="section-label" style={{ display: "block", marginBottom: "7px" }}>Try Examples</span>
               <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 {EXAMPLES_MAP.map((ex) => (
@@ -799,9 +810,18 @@ function Sidebar({ activeTab, setActiveTab, mapQuery, setMapQuery, traceQuery, s
                 </svg>
                 <input className="search-input" type="text" value={traceQuery} onChange={(e) => setTraceQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onTrace()} placeholder="Topic or mechanism..." disabled={traceLoading} autoComplete="off" />
               </div>
-              <button className="btn-primary" style={{ width: "100%", marginBottom: "20px" }} onClick={() => onTrace()} disabled={traceLoading || !traceQuery.trim()}>
-                {traceLoading ? "Tracing..." : "Trace Lineage"}
-              </button>
+              {traceLoading ? (
+                <button
+                  style={{ width: "100%", marginBottom: "20px", padding: "10px 16px", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600, background: "rgba(220,38,38,0.08)", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", transition: "background 0.15s" }}
+                  onClick={onStopTrace}
+                >
+                  ✕ Stop Pipeline
+                </button>
+              ) : (
+                <button className="btn-primary" style={{ width: "100%", marginBottom: "20px" }} onClick={() => onTrace()} disabled={!traceQuery.trim()}>
+                  Trace Lineage
+                </button>
+              )}
               <span className="section-label" style={{ display: "block", marginBottom: "7px" }}>Try Examples</span>
               <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 {EXAMPLES_TRACE.map((ex) => (
@@ -839,6 +859,7 @@ export default function Home() {
   const [mapResponse, setMapResponse] = useState<MapResponse | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapEmpty, setMapEmpty] = useState<string | null>(null);
+  const [mapCancelled, setMapCancelled] = useState(false);
   const [selectedMapIndex, setSelectedMapIndex] = useState<number | null>(null);
 
   // Trace state
@@ -847,9 +868,14 @@ export default function Home() {
   const [traceStep, setTraceStep] = useState(0);
   const [traceResponse, setTraceResponse] = useState<TraceResponse | null>(null);
   const [traceError, setTraceError] = useState<string | null>(null);
+  const [traceCancelled, setTraceCancelled] = useState(false);
   const [activeTracePaperId, setActiveTracePaperId] = useState<string | null>(null);
 
   const stepTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mapAbortRef = useRef<AbortController | null>(null);
+  const traceAbortRef = useRef<AbortController | null>(null);
+  const lastMapQueryRef = useRef<string>("");
+  const lastTraceQueryRef = useRef<string>("");
 
   const startFakeProgress = useCallback((setStep: (n: number) => void) => {
     setStep(0);
@@ -871,11 +897,22 @@ export default function Home() {
   const handleMap = async (tech?: string) => {
     const q = (tech ?? mapQuery).trim();
     if (!q) return;
+
+    // Abort any in-flight request
+    mapAbortRef.current?.abort();
+    const controller = new AbortController();
+    mapAbortRef.current = controller;
+
+    // Re-querying the same term → bypass cache on backend
+    const force_refresh = lastMapQueryRef.current === q;
+    lastMapQueryRef.current = q;
+
     setHasStarted(true);
     setActiveTab("map");
     setMapLoading(true);
     setMapError(null);
     setMapEmpty(null);
+    setMapCancelled(false);
     setMapResponse(null);
     setSelectedMapIndex(null);
     startFakeProgress(setMapStep);
@@ -883,7 +920,8 @@ export default function Home() {
       const res = await fetch(`${apiUrl}/map`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ technology: q, top_k: 12 }),
+        body: JSON.stringify({ technology: q, top_k: 12, force_refresh }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -907,14 +945,15 @@ export default function Home() {
             feasibility_now: item.feasibility_now ?? Math.round((confidence * 0.8) + 10),
           };
         });
-        setMapResponse({
-          ...data,
-          results: sanitizedResults,
-        });
+        setMapResponse({ ...data, results: sanitizedResults });
       }
     } catch (e: unknown) {
       clearFakeProgress();
-      setMapError((e as Error).message ?? "Unexpected error. Is the backend running?");
+      if ((e as Error).name === "AbortError") {
+        setMapCancelled(true);
+      } else {
+        setMapError((e as Error).message ?? "Unexpected error. Is the backend running?");
+      }
     } finally {
       setMapLoading(false);
     }
@@ -923,10 +962,21 @@ export default function Home() {
   const handleTrace = async (q?: string) => {
     const query = (q ?? traceQuery).trim();
     if (!query) return;
+
+    // Abort any in-flight request
+    traceAbortRef.current?.abort();
+    const controller = new AbortController();
+    traceAbortRef.current = controller;
+
+    // Re-querying the same term → bypass cache on backend
+    const force_refresh = lastTraceQueryRef.current === query;
+    lastTraceQueryRef.current = query;
+
     setHasStarted(true);
     setActiveTab("trace");
     setTraceLoading(true);
     setTraceError(null);
+    setTraceCancelled(false);
     setTraceResponse(null);
     setActiveTracePaperId(null);
     startFakeProgress(setTraceStep);
@@ -934,7 +984,8 @@ export default function Home() {
       const res = await fetch(`${apiUrl}/trace`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, max_chain: 8 }),
+        body: JSON.stringify({ query, max_chain: 8, force_refresh }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -946,7 +997,11 @@ export default function Home() {
       setTraceResponse(data);
     } catch (e: unknown) {
       clearFakeProgress();
-      setTraceError((e as Error).message ?? "Unexpected error. Is the backend running?");
+      if ((e as Error).name === "AbortError") {
+        setTraceCancelled(true);
+      } else {
+        setTraceError((e as Error).message ?? "Unexpected error. Is the backend running?");
+      }
     } finally {
       setTraceLoading(false);
     }
@@ -989,6 +1044,8 @@ export default function Home() {
               traceLoading={traceLoading}
               onMap={handleMap}
               onTrace={handleTrace}
+              onStopMap={() => { mapAbortRef.current?.abort(); }}
+              onStopTrace={() => { traceAbortRef.current?.abort(); }}
             />
 
             {/* Main content */}
@@ -1002,6 +1059,14 @@ export default function Home() {
                       <div className="content-inner">
                         <div className="state-box" style={{ borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c" }}>
                           ⚠️ {mapError}
+                        </div>
+                      </div>
+                    )}
+
+                    {mapCancelled && !mapLoading && (
+                      <div className="content-inner">
+                        <div className="state-box" style={{ borderColor: "#e2e8f0", background: "#f8fafc", color: "#64748b" }}>
+                          ◈ Pipeline stopped. Enter a new query to continue.
                         </div>
                       </div>
                     )}
@@ -1149,6 +1214,12 @@ export default function Home() {
                       {traceError && (
                         <div className="state-box" style={{ borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c" }}>
                           ⚠️ Pipeline tracing failed: {traceError}
+                        </div>
+                      )}
+
+                      {traceCancelled && !traceLoading && (
+                        <div className="state-box" style={{ borderColor: "#e2e8f0", background: "#f8fafc", color: "#64748b" }}>
+                          ⚡ Trace stopped. Enter a new query to continue.
                         </div>
                       )}
 

@@ -249,6 +249,7 @@ def trace_lineage(
     gemini_api_key: str,
     s2_api_key: Optional[str] = None,
     max_chain_papers: int = 8,
+    force_refresh: bool = False,
 ) -> dict:
     """
     Full pipeline: query → seed retrieval → graph expansion → bridge detection
@@ -260,19 +261,59 @@ def trace_lineage(
     try:
         logger.info(f"[trace] query='{query}'")
 
-        # Step 0: Check database cache
+        # Step 0: Check database cache (skip on force_refresh)
         import hashlib
         from database import PrecomputedLineage
         query_hash = hashlib.sha1(query.lower().strip().encode()).hexdigest()
-        cached = db.query(PrecomputedLineage).filter_by(query_hash=query_hash).first()
-        if cached:
-            logger.info(f"[trace cache hit] returning cached trace for '{query}'")
-            return json.loads(cached.chain_json)
+        if not force_refresh:
+            cached = db.query(PrecomputedLineage).filter_by(query_hash=query_hash).first()
+            if cached:
+                logger.info(f"[trace cache hit] returning cached trace for '{query}'")
+                return json.loads(cached.chain_json)
 
         # Step 1: Dense retrieval for seeds
         seeds = _fetch_seed_papers(query, gemini_api_key, db, top_k=20)
         seed_ids = [p.corpus_id for p in seeds]
         logger.info(f"[trace] {len(seeds)} seed papers retrieved")
+
+        # Live fetch: if too few local seeds, pull papers from OpenAlex on-the-fly
+        if len(seeds) < 5:
+            logger.info(f"[trace] Only {len(seeds)} local seeds — triggering live OpenAlex fetch for '{query}'")
+            try:
+                import random as _rnd
+                from scripts.ingest_papers import fetch_openalex_papers
+                from database import Paper as _Paper
+                live_pdata = fetch_openalex_papers(query, limit=20)
+                live_added = []
+                for pdata in live_pdata[:15]:
+                    corpus_id = pdata.get("paperId", "")
+                    if not corpus_id:
+                        continue
+                    if db.query(_Paper).filter_by(corpus_id=corpus_id).first():
+                        continue
+                    ext = pdata.get("externalIds") or {}
+                    new_p = _Paper(
+                        corpus_id=corpus_id,
+                        doi=ext.get("DOI"),
+                        arxiv_id=ext.get("ArXiv"),
+                        title=pdata.get("title", "Untitled"),
+                        abstract=pdata.get("abstract", ""),
+                        year=pdata.get("year"),
+                        citation_count=pdata.get("citationCount", 0),
+                        citation_velocity=float(pdata.get("citationVelocity") or 0.0),
+                        influential_citation_count=pdata.get("influentialCitationCount", 0),
+                        cd_index=_rnd.uniform(-0.3, 0.7),
+                        novelty_scored=0,
+                    )
+                    db.add(new_p)
+                    live_added.append(new_p)
+                if live_added:
+                    db.commit()
+                    seeds = seeds + live_added
+                    seed_ids = [p.corpus_id for p in seeds]
+                    logger.info(f"[trace] Added {len(live_added)} live papers; {len(seeds)} total seeds now")
+            except Exception as live_e:
+                logger.warning(f"[trace] Live fetch failed: {live_e}")
 
         # Step 2: Enrich citation edges from S2 for seeds we don't have yet
         _enrich_citation_edges(seed_ids, s2_api_key, db)
@@ -347,7 +388,7 @@ def trace_lineage(
                 if tgt in graph.neighbors(src):
                     edge_list.append({"source": src, "target": tgt})
 
-        return {
+        result = {
             "query": query,
             "chain": chain_papers,
             "narrative": synthesis.get("narrative", ""),
@@ -356,6 +397,29 @@ def trace_lineage(
             "frontier": frontier,
             "edges": edge_list,
         }
+
+        # Cache the result (only for meaningful chains to avoid caching garbage)
+        if len(chain_papers) >= 2:
+            try:
+                from database import PrecomputedLineage
+                existing = db.query(PrecomputedLineage).filter_by(query_hash=query_hash).first()
+                if existing:
+                    existing.chain_json = json.dumps(result)
+                else:
+                    db.add(PrecomputedLineage(
+                        query_hash=query_hash,
+                        query_text=query[:512],
+                        chain_json=json.dumps(result),
+                        narrative=result["narrative"],
+                        pivotal_id=result.get("pivotal_paper_id"),
+                    ))
+                db.commit()
+                logger.info(f"[trace] Result cached for '{query}'")
+            except Exception as cache_e:
+                logger.warning(f"[trace] Cache write failed: {cache_e}")
+                db.rollback()
+
+        return result
 
     finally:
         db.close()

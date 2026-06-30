@@ -5,8 +5,6 @@ import time
 import hashlib
 import requests
 from pathlib import Path
-import google.generativeai as genai
-from groq import Groq
 from dotenv import load_dotenv
 
 # Reconfigure stdout/stderr to UTF-8 to support unicode characters on Windows
@@ -23,12 +21,8 @@ if sys.stderr.encoding != "utf-8":
 
 load_dotenv()
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
-
-_groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+# LLM calls handled by the shared provider chain in llm.py
+from llm import call_llm_chain
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
@@ -110,76 +104,7 @@ def _save_cache(technology: str, results: list) -> None:
         print(f"  [file cache write failed] {e}")
 
 
-# ── LLM helpers ──────────────────────────────────────────────────────────────
-
-def _call_gemini(messages: list, temperature: float, max_tokens: int) -> str | None:
-    """Call Gemini Flash. messages = [{role, content}, ...] OpenAI-style."""
-    if not GEMINI_API_KEY:
-        return None
-    try:
-        model = genai.GenerativeModel(
-            "gemini-2.0-flash",
-            generation_config=genai.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            ),
-        )
-        # Convert OpenAI-style messages to Gemini format
-        # System message → prepend to first user message
-        parts = []
-        for m in messages:
-            if m["role"] == "system":
-                parts.append(f"[System instruction]: {m['content']}")
-            else:
-                parts.append(m["content"])
-        prompt = "\n\n".join(parts)
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        print(f"  Gemini call failed: {e}")
-        return None
-
-
-def _call_groq(messages: list, model: str, temperature: float,
-               max_tokens: int, max_retries: int) -> str | None:
-    """Call Groq with exponential backoff."""
-    if not _groq_client:
-        return None
-    for attempt in range(max_retries):
-        try:
-            response = _groq_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            err = str(e).lower()
-            if ("rate_limit" in err or "429" in err) and attempt < max_retries - 1:
-                wait = min(4 * (2 ** attempt), 60)  # 4s, 8s, 16s, 32s, 60s
-                print(f"  Groq rate limited (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
-                time.sleep(wait)
-            else:
-                print(f"  Groq failed after {attempt+1} attempt(s): {e}")
-                return None
-    return None
-
-
-def call_groq_with_retry(messages: list, model: str = "llama-3.3-70b-versatile",
-                          temperature: float = 0.4, max_tokens: int = 3000,
-                          max_retries: int = 5) -> str | None:
-    """
-    Primary: Gemini Flash (high quota, fast).
-    Fallback: Groq with exponential backoff.
-    """
-    # Try Gemini first — it has a much higher free-tier quota
-    result = _call_gemini(messages, temperature, max_tokens)
-    if result:
-        return result
-
-    print("  Gemini unavailable — falling back to Groq...")
-    return _call_groq(messages, model, temperature, max_tokens, max_retries)
+# (LLM helpers removed — all LLM calls route through call_llm_chain from llm.py)
 
 
 def parse_json_response(raw: str) -> list | dict | None:
@@ -374,14 +299,10 @@ def generate_specific_fields(technology: str, papers: list[dict]) -> list[str]:
     )
 
     print("  Generating specific candidate fields...")
-    raw = call_groq_with_retry(
-        messages=[
-            {"role": "system", "content": "You are a cross-disciplinary research strategist. Respond only with a raw JSON list of strings. No markdown, no explanations."},
-            {"role": "user", "content": prompt},
-        ],
-        model="llama-3.1-8b-instant",   # Fast model: 6000 RPM free tier
+    raw = call_llm_chain(
+        prompt=prompt,
+        system_instruction="You are a cross-disciplinary research strategist. Respond only with a raw JSON list of strings. No markdown, no explanations.",
         temperature=0.6,
-        max_tokens=700,
     )
 
     if not raw:
@@ -461,13 +382,10 @@ def evaluate_fields_batch(technology: str, fields: list[str]) -> list[dict]:
     )
 
     print(f"  Sending batch evaluation for {len(fields)} fields...")
-    raw = call_groq_with_retry(
-        messages=[
-            {"role": "system", "content": EVAL_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
+    raw = call_llm_chain(
+        prompt=prompt,
+        system_instruction=EVAL_SYSTEM_PROMPT,
         temperature=0.3,
-        max_tokens=4000,
     )
 
     if not raw:
@@ -529,11 +447,24 @@ def rank_results(results: list[dict], top_k: int) -> list[dict]:
 
 # ── 5. Main pipeline ──────────────────────────────────────────────────────────
 
-def map_adjacent_possible(technology: str, top_k: int = 10, use_cache: bool = True) -> list[dict]:
+def _is_fallback_result(results: list) -> bool:
+    """Return True if results look like the hardcoded fallback — not real LLM output."""
+    if not results:
+        return True
+    if len(results) == 1:
+        r = results[0]
+        title = str(r.get("title", ""))
+        rationale = str(r.get("novelty_rationale", ""))
+        if "Bio-Informatics" in title or "transfer learning methods" in rationale:
+            return True
+    return False
+
+
+def map_adjacent_possible(technology: str, top_k: int = 10, use_cache: bool = True, force_refresh: bool = False) -> list[dict]:
     print(f"\n── Mapping adjacent possible for: '{technology}' ──\n")
 
-    # Check cache first
-    if use_cache:
+    # Check cache first (skipped on force_refresh to allow live re-query)
+    if use_cache and not force_refresh:
         cached = _load_cache(technology)
         if cached is not None:
             return cached[:top_k]
@@ -595,8 +526,8 @@ def map_adjacent_possible(technology: str, top_k: int = 10, use_cache: bool = Tr
             }
         ]
 
-    # Save to cache
-    if use_cache and results:
+    # Save to cache — only if results are real (not the hardcoded fallback)
+    if use_cache and results and not _is_fallback_result(results):
         _save_cache(technology, results)
 
     return results[:top_k]

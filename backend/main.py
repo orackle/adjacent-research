@@ -13,10 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db, SessionLocal, Paper
-from novelty import GEMINI_API_KEY
 from scripts.ingest_papers import run_ingestion
-
-import google.generativeai as genai
+from llm import call_llm_chain
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,71 +75,55 @@ def generate_query_embedding(text: str) -> list:
     return generate_local_embedding(text)
 
 def generate_llm_explanations(title: str, abstract: str) -> tuple:
-    """Generate breakthrough one-liner and context summary using Gemini."""
+    """Generate breakthrough one-liner and context summary via the shared LLM chain."""
     default_one_liner = f"Introduces a groundbreaking framework for solving key constraints in {title}."
     default_context = "**Problem Posed:** General bottleneck in state-of-the-art systems.\n\n**Solution Proposed:** Custom methodology that enhances performance."
 
-    if not GEMINI_API_KEY:
-        return (default_one_liner, default_context)
-
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        
         # 1. One-liner
-        prompt_one_liner = f"""You are an expert research communicator. Given a paper's title and abstract, write a single, punchy sentence that explains why this paper is considered groundbreaking. Mention the key innovation or finding.
-
-Paper: "{title}"
-Abstract: "{abstract}"
-
-Breakthrough reason:"""
-        res_one = model.generate_content(prompt_one_liner)
-        one_liner_text = getattr(res_one, 'text', None)
+        prompt_one_liner = (
+            f"You are an expert research communicator. Given a paper's title and abstract, "
+            f"write a single, punchy sentence that explains why this paper is considered groundbreaking. "
+            f"Mention the key innovation or finding.\n\n"
+            f'Paper: "{title}"\nAbstract: "{abstract}"\n\nBreakthrough reason:'
+        )
+        one_liner_text = call_llm_chain(prompt_one_liner, temperature=0.3)
         one_liner = one_liner_text.strip().strip('"') if one_liner_text else default_one_liner
 
         # 2. Context summary (Problem and Solution)
-        prompt_context = f"""Write a concise two-part analysis of this paper based on its title and abstract:
-1. Start with the label "**Problem Posed:** " followed by 1-2 sentences explaining the specific bottleneck or problem the paper addresses.
-2. Follow with the label "**Solution Proposed:** " followed by 1-2 sentences explaining how this paper solves it.
-
-Do not include any other text or headers.
-
-Paper: "{title}"
-Abstract: "{abstract}" """
-        res_context = model.generate_content(prompt_context)
-        context_text = getattr(res_context, 'text', None)
+        prompt_context = (
+            f'Write a concise two-part analysis of this paper based on its title and abstract:\n'
+            f'1. Start with "**Problem Posed:** " followed by 1-2 sentences on the bottleneck.\n'
+            f'2. Follow with "**Solution Proposed:** " followed by 1-2 sentences on how it solves it.\n\n'
+            f'Do not include any other text or headers.\n\n'
+            f'Paper: "{title}"\nAbstract: "{abstract}"'
+        )
+        context_text = call_llm_chain(prompt_context, temperature=0.3)
         context = context_text.strip() if context_text else default_context
 
         return one_liner, context
     except Exception as e:
-        logger.error(f"Error generating Gemini explanations: {e}")
+        logger.error(f"Error generating LLM explanations: {e}")
         return (default_one_liner, default_context)
 
-def rerank_with_gemini(query: str, candidates: list) -> list:
-    """Use Gemini to re-rank the top candidates for relevance."""
-    if not GEMINI_API_KEY or not candidates:
+def rerank_papers(query: str, candidates: list) -> list:
+    """Re-rank candidates for relevance via the shared LLM chain."""
+    if not candidates:
         return candidates[:10]
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
         items = []
         for idx, p in enumerate(candidates):
             items.append(f"[{idx}] Title: {p.title}\nAbstract: {(p.abstract or '')[:300]}")
-            
         papers_str = "\n\n".join(items)
-        prompt = f"""You are an expert research ranker. Rate the relevance of these papers to the search query "{query}".
-Respond ONLY with a JSON list of indices in order of relevance (most relevant first), e.g. [3, 0, 1, 2]. Do not include any other text.
-
-PAPERS:
-{papers_str}"""
-        
-        res = model.generate_content(prompt)
-        # Guard: res.text can be None if response was blocked/filtered
-        res_text = getattr(res, 'text', None)
-        if not res_text:
-            logger.warning("Gemini rerank returned empty/blocked response; using FAISS order.")
+        prompt = (
+            f'You are an expert research ranker. Rate the relevance of these papers to the query "{query}".\n'
+            f'Respond ONLY with a JSON list of indices in order of relevance (most relevant first), '
+            f'e.g. [3, 0, 1, 2]. Do not include any other text.\n\nPAPERS:\n{papers_str}'
+        )
+        text = call_llm_chain(prompt, temperature=0.1)
+        if not text:
             return candidates[:10]
-        text = res_text.strip()
-        
-        # Extract indices
+
         import re
         match = re.search(r"\[\s*\d+\s*(?:,\s*\d+\s*)*\]", text)
         if match:
@@ -150,13 +132,12 @@ PAPERS:
             for idx in indices:
                 if 0 <= idx < len(candidates):
                     ranked.append(candidates[idx])
-            # Append remaining ones
             for c in candidates:
                 if c not in ranked:
                     ranked.append(c)
             return ranked[:10]
     except Exception as e:
-        logger.error(f"Failed to rerank with Gemini: {e}")
+        logger.error(f"Failed to rerank papers: {e}")
     return candidates[:10]
 
 def _live_fallback_search(topic: str, k: int) -> list:
@@ -252,8 +233,8 @@ def search_papers():
             logger.info(f"Live fallback search completed in {duration:.3f}s with {len(live_results)} results")
             return jsonify(live_results)
             
-        # 3. Re-rank using Gemini
-        candidates = rerank_with_gemini(topic, top_candidates)
+        # 3. Re-rank using shared LLM chain
+        candidates = rerank_papers(topic, top_candidates)
         
         # 4. Apply custom user weights to compute final score
         results = []
@@ -362,13 +343,14 @@ def map_adjacent():
     technology = req.get("technology", "").strip()
     top_k = int(req.get("top_k", 10))
     use_cache = bool(req.get("use_cache", True))
+    force_refresh = bool(req.get("force_refresh", False))
 
     if not technology:
         return jsonify({"error": "technology field is required"}), 400
 
     try:
         from mapper import map_adjacent_possible
-        results = map_adjacent_possible(technology, top_k=top_k, use_cache=use_cache)
+        results = map_adjacent_possible(technology, top_k=top_k, use_cache=use_cache, force_refresh=force_refresh)
         return jsonify({"technology": technology, "results": results})
     except Exception as e:
         logger.error(f"Mapper failed for '{technology}': {e}")
@@ -381,21 +363,20 @@ def trace_lineage_endpoint():
     req = request.get_json() or {}
     query = req.get("query", "").strip()
     max_chain = int(req.get("max_chain", 8))
+    force_refresh = bool(req.get("force_refresh", False))
 
     if not query:
         return jsonify({"error": "query field is required"}), 400
-
-    if not GEMINI_API_KEY:
-        return jsonify({"error": "GEMINI_API_KEY not configured"}), 500
 
     try:
         from chain import trace_lineage
         s2_key = os.environ.get("S2_API_KEY")
         result = trace_lineage(
             query=query,
-            gemini_api_key=GEMINI_API_KEY,
+            gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
             s2_api_key=s2_key,
             max_chain_papers=max_chain,
+            force_refresh=force_refresh,
         )
         return jsonify(result)
     except Exception as e:

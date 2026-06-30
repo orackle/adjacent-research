@@ -454,12 +454,15 @@ def ingest_citation_edges(session, paper_ids: list, s2_api_key: str | None = Non
         else:
             encoded_title = urllib.parse.quote(paper.title)
             url = f"https://api.openalex.org/works?search={encoded_title}&per_page=1"
-
+        
+        retry_count = 0
         try:
             resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code == 429:
-                print("  OpenAlex rate-limited, waiting 2s...")
-                time.sleep(2)
+            while resp.status_code == 429 and retry_count < 7:
+                exponential_backoff = (2 ** retry_count) * random.uniform(1, 1.5)
+                print(f"  OpenAlex rate-limited, waiting {exponential_backoff:.2f}s...")
+                time.sleep(exponential_backoff)
+                retry_count += 1
                 resp = requests.get(url, headers=headers, timeout=10)
             if not resp.ok:
                 continue
