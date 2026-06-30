@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: adjacent-research-backend
+    env: docker
+    dockerfilePath: Dockerfile.backend
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
