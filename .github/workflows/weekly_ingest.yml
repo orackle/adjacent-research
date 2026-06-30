@@ -1,0 +1,15 @@
+name: Weekly Data Ingestion
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6:00 AM UTC
+  workflow_dispatch:      # Enable manual run
+
+jobs:
+  trigger-ingestion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Ingestion API Endpoint
+        run: |
+          curl -X POST "${{ secrets.BACKEND_API_URL }}/internal/run_ingestion" \
+               -H "Content-Type: application/json"

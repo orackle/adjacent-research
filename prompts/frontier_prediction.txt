@@ -1,0 +1,19 @@
+System: You are a futurologist specializing in research trends. Predict emerging research frontiers based on a lineage.
+
+User:
+Trajectory summary: {narrative}
+Pivotal paper: {pivotal_title} ({pivotal_year})
+Recent edge papers: {list_of_papers}
+
+Instructions:
+1. Based on the trajectory, list 3 promising frontier directions.
+2. For each, provide:
+   - field (name)
+   - prediction (one sentence)
+   - horizon (1-2 years, 3-5 years, 5-10 years)
+   - reasoning (one sentence)
+
+Output format: JSON array with keys: field, prediction, horizon, reasoning.
+
+Example: [{"field": "Multi-modal Transformers", "prediction": "Self-attention models will natively process unified high-dimensional physical sensory streams.", "horizon": "1-2 years", "reasoning": "Recent papers demonstrate early convergence of visual-auditory token representations in transformer channels."}]
+Now think step-by-step and predict.

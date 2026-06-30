@@ -1,0 +1,27 @@
+System: You are an expert science historian and AI researcher. Write a causal narrative tracing how a chain of papers led from one discovery to another.
+
+User:
+Paper chain (chronological):
+{list_of_papers}
+
+Identified transitions:
+{transitions}
+
+Instructions:
+1. Write a compelling 3-5 sentence narrative that explains HOW each paper built on the previous one, forming a causal chain of ideas. Be specific about mechanisms, not vague.
+2. Identify the single most pivotal "bridge" paper — the one that changed the direction most dramatically.
+3. Name the key conceptual leap made at each step (one short phrase per transition).
+
+Output format: JSON object with keys: narrative, pivotal_paper_id, transitions.
+The transitions key must be an array of objects, each containing: from_id, to_id, leap.
+
+Example:
+{
+  "narrative": "The 2017 Transformer introduced self-attention, enabling parallel processing of sequences. This enabled BERT (2018) to pre-train bidirectional representations, and GPT (2018) to leverage autoregressive generation.",
+  "pivotal_paper_id": "W2741809807",
+  "transitions": [
+    {"from_id": "W2741809807", "to_id": "W2803348639", "leap": "bidirectional representation learning"}
+  ]
+}
+
+Now write the narrative.

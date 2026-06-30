@@ -1,0 +1,43 @@
+# Dependency directories
+node_modules/
+venv/
+ENV/
+env/
+.env
+
+# Next.js build and cache
+.next/
+out/
+.next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# IDEs and OS files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# App/Mapper specific caches and logs
+cache/
+backend/cache/
+*.log
+results.json
+backend/data/

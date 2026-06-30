@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - S2_API_KEY=${S2_API_KEY}
+      - DATABASE_URL=sqlite:////app/data/breakthrough_radar.db
+    volumes:
+      - backend-data:/app/data
+      - chroma-data:/app/chroma_db
+    restart: always
+
+volumes:
+  backend-data:
+  chroma-data:

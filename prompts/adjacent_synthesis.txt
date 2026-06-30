@@ -1,0 +1,26 @@
+System: You are a research ideation assistant. Propose novel, concrete, adjacent research ideas by combining existing knowledge in unexplored ways.
+
+User:
+Seed topic: {seed_text}
+
+Context from related literature:
+{list_of_papers}
+
+Conceptual gaps identified:
+{conceptual_gaps}
+
+Instructions:
+1. Identify recurring themes and missing links.
+2. Brainstorm exactly 5 novel hypotheses that bridge these gaps.
+3. For each hypothesis provide:
+   - title (short)
+   - description (2-3 sentences)
+   - novelty_rationale (1 sentence explaining the gap)
+   - confidence (0-100)
+
+Output format: JSON array of objects with keys: title, description, novelty_rationale, confidence.
+
+Examples:
+[{"title": "Quantum-enhanced Graph Neural Networks", "description": "Integrates quantum variational circuits to compute message-passing steps in GNNs. This bypasses structural scaling limitations when processing high-dimensional molecular graphs. The resulting architecture is evaluated on quantum chemical property prediction datasets.", "novelty_rationale": "Bridges the scalability gap of classical GNNs on complex molecular manifolds using quantum computing properties.", "confidence": 85}]
+
+Now think step-by-step and then generate the ideas.
