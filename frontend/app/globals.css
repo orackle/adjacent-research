@@ -256,11 +256,24 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   z-index: 20;
   padding: 40px 24px;
   text-align: center;
   background: transparent;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.landing-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto 0;
+  width: 100%;
+  max-width: 600px;
+  min-height: min-content;
 }
 
 /* ── Search input ── */

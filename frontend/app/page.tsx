@@ -533,154 +533,156 @@ function LandingPage({ onStart }: { onStart: (mode: "map" | "trace", query: stri
       exit={{ opacity: 0, scale: 0.96, y: -20 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Logo */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05, type: "spring", stiffness: 300, damping: 24 }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px", justifyContent: "center" }}>
-          <motion.span
-            className="float-y"
-            style={{ fontSize: "2.2rem", display: "inline-block" }}
-            initial={{ rotate: -15, scale: 0.6 }}
-            animate={{ rotate: 0, scale: 1 }}
-            transition={{ delay: 0.15, type: "spring", stiffness: 260, damping: 18 }}
-          >◈</motion.span>
-          <h1 className="font-display" style={{ fontSize: "2.1rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em" }}>
-            Interlace
-          </h1>
-        </div>
-        <p style={{ fontSize: "0.88rem", color: "var(--t3)", textAlign: "center", marginBottom: "36px", letterSpacing: "0.04em" }}>
-          Research Adjacency Engine
-        </p>
-      </motion.div>
-
-      {/* Tagline */}
-      <motion.div
-        initial={{ opacity: 0, y: 22 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.14, type: "spring", stiffness: 240, damping: 22 }}
-        style={{ marginBottom: "36px", textAlign: "center" }}
-      >
-        <h2 className="font-display" style={{ fontSize: "2.8rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em", lineHeight: 1.12, marginBottom: "14px", maxWidth: "580px" }}>
-          Discover What's<br />Adjacent to Any Idea
-        </h2>
-        <p style={{ fontSize: "1rem", color: "var(--t2)", lineHeight: 1.65, maxWidth: "460px", margin: "0 auto" }}>
-          Map the frontier of any research domain — ranked adjacency pathways, feasibility scores, and causal citation chains.
-        </p>
-      </motion.div>
-
-      {/* Mode toggle + search */}
-      <motion.div
-        initial={{ opacity: 0, y: 28, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.22, type: "spring", stiffness: 260, damping: 24 }}
-        style={{ width: "100%", maxWidth: "520px" }}
-      >
-        {/* Mode switch */}
-        <div className="glass-panel" style={{ display: "flex", gap: "6px", marginBottom: "12px", padding: "5px", borderRadius: "12px" }}>
-          {(["map", "trace"] as const).map((m) => (
-            <motion.button
-              key={m}
-              onClick={() => setMode(m)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                flex: 1, padding: "10px", border: "none", borderRadius: "8px", cursor: "pointer",
-                fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600,
-                transition: "background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease",
-                background: mode === m ? "white" : "transparent",
-                color: mode === m ? "var(--t1)" : "var(--t3)",
-                boxShadow: mode === m ? "0 2px 10px rgba(15,23,42,0.12)" : "none",
-              }}
-            >
-              {m === "map" ? "◈ Adjacent Mapper" : "⚡ Lineage Tracer"}
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Search box */}
-        <div style={{ position: "relative", marginBottom: "14px" }}>
-          <svg style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "var(--t4)", pointerEvents: "none" }}
-            width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-            <circle cx={11} cy={11} r={8} /><path d="m21 21-4.35-4.35" />
-          </svg>
-          <input
-            className="search-input-hero"
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder={mode === "map" ? "e.g. diffusion models, CRISPR..." : "e.g. transformer architecture..."}
-            autoFocus
-          />
-        </div>
-
-        <motion.button
-          className="btn-primary-hero"
-          style={{ width: "100%", marginBottom: "22px" }}
-          onClick={submit}
-          disabled={!query.trim()}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
+      <div className="landing-inner">
+        {/* Logo */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, type: "spring", stiffness: 300, damping: 24 }}
         >
-          {mode === "map" ? "Map Adjacencies →" : "Trace Lineage →"}
-        </motion.button>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px", justifyContent: "center" }}>
+            <motion.span
+              className="float-y"
+              style={{ fontSize: "2.2rem", display: "inline-block" }}
+              initial={{ rotate: -15, scale: 0.6 }}
+              animate={{ rotate: 0, scale: 1 }}
+              transition={{ delay: 0.15, type: "spring", stiffness: 260, damping: 18 }}
+            >◈</motion.span>
+            <h1 className="font-display" style={{ fontSize: "2.1rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em" }}>
+              Interlace
+            </h1>
+          </div>
+          <p style={{ fontSize: "0.88rem", color: "var(--t3)", textAlign: "center", marginBottom: "36px", letterSpacing: "0.04em" }}>
+            Research Adjacency Engine
+          </p>
+        </motion.div>
 
-        {/* Example chips */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center" }}
-          >
-            {(mode === "map" ? EXAMPLES_MAP : EXAMPLES_TRACE).slice(0, 4).map((ex, i) => (
+        {/* Tagline */}
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14, type: "spring", stiffness: 240, damping: 22 }}
+          style={{ marginBottom: "36px", textAlign: "center" }}
+        >
+          <h2 className="font-display" style={{ fontSize: "2.8rem", fontWeight: 800, color: "var(--t1)", letterSpacing: "-0.03em", lineHeight: 1.12, marginBottom: "14px", maxWidth: "580px" }}>
+            Discover What's<br />Adjacent to Any Idea
+          </h2>
+          <p style={{ fontSize: "1rem", color: "var(--t2)", lineHeight: 1.65, maxWidth: "460px", margin: "0 auto" }}>
+            Map the frontier of any research domain — ranked adjacency pathways, feasibility scores, and causal citation chains.
+          </p>
+        </motion.div>
+
+        {/* Mode toggle + search */}
+        <motion.div
+          initial={{ opacity: 0, y: 28, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.22, type: "spring", stiffness: 260, damping: 24 }}
+          style={{ width: "100%", maxWidth: "520px" }}
+        >
+          {/* Mode switch */}
+          <div className="glass-panel" style={{ display: "flex", gap: "6px", marginBottom: "12px", padding: "5px", borderRadius: "12px" }}>
+            {(["map", "trace"] as const).map((m) => (
               <motion.button
-                key={ex}
-                className="chip"
-                onClick={() => { setQuery(ex); onStart(mode, ex); }}
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.06, type: "spring", stiffness: 340, damping: 22 }}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.95 }}
+                key={m}
+                onClick={() => setMode(m)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                style={{
+                  flex: 1, padding: "10px", border: "none", borderRadius: "8px", cursor: "pointer",
+                  fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600,
+                  transition: "background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease",
+                  background: mode === m ? "white" : "transparent",
+                  color: mode === m ? "var(--t1)" : "var(--t3)",
+                  boxShadow: mode === m ? "0 2px 10px rgba(15,23,42,0.12)" : "none",
+                }}
               >
-                {ex}
+                {m === "map" ? "◈ Adjacent Mapper" : "⚡ Lineage Tracer"}
               </motion.button>
             ))}
-          </motion.div>
-        </AnimatePresence>
-      </motion.div>
+          </div>
 
-      {/* Feature cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.38, type: "spring", stiffness: 220, damping: 24 }}
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", maxWidth: "520px", width: "100%", marginTop: "40px" }}
-      >
-        {[
-          { icon: "◈", label: "Adjacent Mapper", desc: "Ranked adjacent fields scored by urgency and feasibility." },
-          { icon: "⚡", label: "Lineage Tracer",  desc: "Causal citation chains from founding paper to frontier." },
-        ].map(({ icon, label, desc }, i) => (
-          <motion.div
-            key={label}
-            className="hero-feature-card"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.42 + i * 0.08, type: "spring", stiffness: 280, damping: 24 }}
-            whileHover={{ y: -5, boxShadow: "0 12px 36px rgba(15,23,42,0.13)" }}
+          {/* Search box */}
+          <div style={{ position: "relative", marginBottom: "14px" }}>
+            <svg style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "var(--t4)", pointerEvents: "none" }}
+              width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+              <circle cx={11} cy={11} r={8} /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              className="search-input-hero"
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder={mode === "map" ? "e.g. diffusion models, CRISPR..." : "e.g. transformer architecture..."}
+              autoFocus
+            />
+          </div>
+
+          <motion.button
+            className="btn-primary-hero"
+            style={{ width: "100%", marginBottom: "22px" }}
+            onClick={submit}
+            disabled={!query.trim()}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
           >
-            <div style={{ fontSize: "1.2rem", marginBottom: "8px" }}>{icon}</div>
-            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--t1)", marginBottom: "5px" }}>{label}</div>
-            <p style={{ fontSize: "0.75rem", color: "var(--t3)", lineHeight: 1.5 }}>{desc}</p>
-          </motion.div>
-        ))}
-      </motion.div>
+            {mode === "map" ? "Map Adjacencies →" : "Trace Lineage →"}
+          </motion.button>
+
+          {/* Example chips */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center" }}
+            >
+              {(mode === "map" ? EXAMPLES_MAP : EXAMPLES_TRACE).slice(0, 4).map((ex, i) => (
+                <motion.button
+                  key={ex}
+                  className="chip"
+                  onClick={() => { setQuery(ex); onStart(mode, ex); }}
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.06, type: "spring", stiffness: 340, damping: 22 }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {ex}
+                </motion.button>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Feature cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.38, type: "spring", stiffness: 220, damping: 24 }}
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", maxWidth: "520px", width: "100%", marginTop: "40px" }}
+        >
+          {[
+            { icon: "◈", label: "Adjacent Mapper", desc: "Ranked adjacent fields scored by urgency and feasibility." },
+            { icon: "⚡", label: "Lineage Tracer",  desc: "Causal citation chains from founding paper to frontier." },
+          ].map(({ icon, label, desc }, i) => (
+            <motion.div
+              key={label}
+              className="hero-feature-card"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.42 + i * 0.08, type: "spring", stiffness: 280, damping: 24 }}
+              whileHover={{ y: -5, boxShadow: "0 12px 36px rgba(15,23,42,0.13)" }}
+            >
+              <div style={{ fontSize: "1.2rem", marginBottom: "8px" }}>{icon}</div>
+              <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--t1)", marginBottom: "5px" }}>{label}</div>
+              <p style={{ fontSize: "0.75rem", color: "var(--t3)", lineHeight: 1.5 }}>{desc}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
